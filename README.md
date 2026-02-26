@@ -21,14 +21,13 @@ Click on the links below to access the detailed technical write-ups (Original re
 * **Log Management:** Implementation of strict retention and rotation policies.
 
 ### 2. [Phase 2: Observability Stack](./phase-2-observability/monitoring-setup.md)
-* **Deployment:** LGMA Stack (Loki, Grafana, Mimir/Prometheus, Alloy) via Docker.
-* **Storage Performance:** Using **VictoriaMetrics** for high-performance metrics storage.
+* **Deployment:** LGMA Stack (Loki, Grafana, Prometheus, Alloy) via Docker.
 * **Visualization:** Custom dashboards and traffic monitoring.
 
 ### 3. [Phase 3: HIPS with CrowdSec](./phase-3-hips-crowdsec/intrusion-prevention.md)
 * **Behavioral Analysis:** Log-based detection (Nginx, SSH).
+* **Storage Optimization:** Integration of **VictoriaMetrics** specifically for CrowdSec logs/alerts ingestion.
 * **Remediation:** Automated blocking via **nftables Bouncers** (Host IPS).
-* **Production Tuning:** Managing ban decisions in a live environment.
 
 ### 4. [Phase 4: NIPS with Suricata](./phase-4-nips-suricata/network-protection.md)
 * **Traffic Inspection:** Deep Packet Inspection (DPI) in **Inline mode**.
@@ -44,7 +43,7 @@ Click on the links below to access the detailed technical write-ups (Original re
 
 ## 🛠️ Core Tech Stack
 * **Security:** Suricata (NIPS), CrowdSec (HIPS), nftables.
-* **Monitoring:** Grafana, Loki, VictoriaMetrics, Grafana Alloy.
+* **Monitoring:** Grafana, Loki, **VictoriaMetrics (CrowdSec logs)**, Grafana Alloy.
 * **OS/Env:** Linux (Debian/Ubuntu), Docker, Bash.
 
 ---
