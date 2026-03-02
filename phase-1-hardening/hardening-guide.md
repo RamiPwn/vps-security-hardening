@@ -1,77 +1,77 @@
-# 🛡️ Phase 1 - System Hardening & Surface Reduction
+# 🛡️ Phase 1 – System Hardening & Surface Reduction
 
-## 📝 Résumé Global
+## 📝 Executive Summary
 
-L'objectif de cette phase est de sécuriser un serveur web **Nginx** en production via une approche progressive.
+The objective of this phase is to secure a production **Nginx web server** using a progressive and structured hardening approach.
 
-Cette stratégie repose sur quatre piliers :
+This strategy is built on four main pillars:
 
-- **Audit & Nettoyage** des services inutilisés  
-- **Filtrage Réseau** restrictif (UFW)  
-- **Protection Anti-Bruteforce** (Fail2ban)  
-- **Durcissement du Noyau** (Kernel Hardening via sysctl)  
+- **Service Audit & Cleanup** to reduce the attack surface  
+- **Restrictive Network Filtering** (UFW)  
+- **Anti-Brute-Force Protection** (Fail2ban)  
+- **Linux Kernel Hardening** via `sysctl`  
 
 > [!IMPORTANT]  
-> Toutes les actions ont été réalisées **sans interruption de service** afin de garantir la disponibilité des sites hébergés.
+> All actions were performed **without service interruption**, ensuring full availability of hosted websites.
 
 ---
 
-# 🔍 Section 1 : Analyse des Services & Réduction de la Surface d'Attaque
+# 🔍 Section 1 – Service Analysis & Attack Surface Reduction
 
-Un audit a révélé la présence d’**Apache2**, inutilisé et faisant doublon avec Nginx.  
-Il a été supprimé afin d’éliminer un vecteur d’attaque potentiel.
+An audit revealed the presence of **Apache2**, which was unused and redundant alongside Nginx.  
+It was removed to eliminate an unnecessary attack vector.
 
-## 🔎 Inventaire des services
+## 🔎 Service Inventory
 
 ```bash
 service --status-all
 ```
 
-## 🗑 Suppression du service redondant
+## 🗑 Removal of Redundant Service
 
 ```bash
 sudo systemctl stop apache2
 sudo apt-get purge apache2
 ```
 
-## 🔐 Sécurisation des accès SSH
+## 🔐 SSH Access Hardening
 
-- Désactivation de l'accès root direct  
-- Utilisation d'un utilisateur dédié avec privilèges `sudo`  
+- Disabled direct root login  
+- Enforced usage of a dedicated user with `sudo` privileges  
 
-### 📸 Preuve visuelle
+### 📸 Evidence
 
 ![Service Audit](../assets/hardening_1.png)
 
 ---
 
-# 🛡️ Section 2 : Prévention d'Intrusion (UFW & Fail2ban)
+# 🛡️ Section 2 – Intrusion Prevention (UFW & Fail2ban)
 
-## 🔎 Fail2ban – Protection Anti-Bruteforce
+## 🔎 Fail2ban – Anti-Brute-Force Protection
 
-Vérification des journaux pour confirmer que la protection SSH est active :
+Verification of active SSH protection through log monitoring:
 
 ```bash
 sudo tail -n 50 /var/log/fail2ban.log
 ```
 
-### 📸 Logs Fail2ban
+### 📸 Fail2ban Logs
 
 ![Fail2ban Logs](../assets/hardening_2.png)
 
 ---
 
-## 🔥 UFW – Politique Deny by Default
+## 🔥 UFW – Deny-by-Default Firewall Policy
 
-Application d'une politique restrictive :
+A strict firewall policy was implemented:
 
-Seuls les ports essentiels sont autorisés :
+Only essential ports are allowed:
 
 - 22 → SSH  
 - 80 → HTTP  
 - 443 → HTTPS  
 
-### Configuration des règles
+### Firewall Rule Configuration
 
 ```bash
 sudo ufw allow ssh
@@ -79,74 +79,74 @@ sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 ```
 
-### Activation du pare-feu
+### Firewall Activation
 
 ```bash
 sudo ufw enable
 ```
 
-### 📸 Configuration UFW
+### 📸 UFW Configuration
 
 ![UFW Configuration](../assets/hardening_3.png)
 
 ---
 
-# ⚙️ Section 3 : Sécurisation du Kernel Linux (sysctl)
+# ⚙️ Section 3 – Linux Kernel Hardening (sysctl)
 
-Optimisation des paramètres réseau du noyau pour bloquer les attaques de bas niveau.
+Network kernel parameters were optimized to mitigate low-level attacks.
 
-## 🛡️ Protections Implémentées
+## 🛡️ Implemented Protections
 
-- **SYN Cookies** → Protection contre les attaques SYN Flood  
-- **Reverse Path Filtering** → Prévention de l’IP Spoofing  
-- **Désactivation ICMP Redirects** → Réduction du risque Man-in-the-Middle  
+- **SYN Cookies** → Protection against SYN Flood attacks  
+- **Reverse Path Filtering** → IP Spoofing prevention  
+- **ICMP Redirect Disablement** → Mitigation against Man-in-the-Middle attacks  
 
 ---
 
-## 📁 Configuration Persistante
+## 📁 Persistent Configuration
 
-Fichier utilisé :
+Configuration file used:
 
 ```bash
 /etc/sysctl.d/99-minimal-hardening.conf
 ```
 
-### 📸 Fichier de configuration
+### 📸 Sysctl Configuration
 
 ![Sysctl Config](../assets/hardening_4.png)
 
 ---
 
-## 🚀 Application sans redémarrage
+## 🚀 Apply Changes Without Reboot
 
 ```bash
 sudo sysctl --system
 ```
 
-### 📸 Application des paramètres
+### 📸 Applying Kernel Parameters
 
 ![Sysctl Apply](../assets/hardening_5.png)
 
 ---
 
-# ✅ Section 4 : Vérification Technique Finale
+# ✅ Section 4 – Final Technical Validation
 
-Validation des paramètres critiques :
+Validation of critical security flags:
 
 ```bash
 sysctl net.ipv4.tcp_syncookies
 sysctl net.ipv4.conf.all.rp_filter
 ```
 
-Les valeurs doivent retourner :
+Expected output:
 
 ```
 1
 ```
 
-Si c’est le cas, le durcissement est actif.
+If the value returned is `1`, the hardening is successfully active.
 
-### 📸 Vérification finale
+### 📸 Final Verification
 
 ![Final Verification](../assets/hardening_6.png)
 
@@ -154,11 +154,11 @@ Si c’est le cas, le durcissement est actif.
 
 # 🚀 Conclusion
 
-Le VPS dispose désormais :
+The VPS now benefits from:
 
-- D’une surface d’attaque minimale  
-- D’un filtrage réseau strict  
-- D’une protection anti-bruteforce active  
-- D’un noyau Linux renforcé  
+- A minimized attack surface  
+- Strict network filtering  
+- Active brute-force protection  
+- Hardened Linux kernel parameters  
 
-Le système est prêt pour la **Phase 2 : Déploiement de la stack d’observabilité**.
+The system is now secure and ready for **Phase 2: Observability Stack Deployment**.
