@@ -13,7 +13,7 @@ Comprehensive security reinforcement of a production VPS (Zero-Downtime). Implem
 
 ## 📂 Project Structure & Documentation
 
-Click on the links below to access the detailed technical write-ups (Original reports in French):
+Click on the links below to access the detailed technical write-ups:
 
 ### 1. [Phase 1: System Hardening](./phase-1-hardening/hardening-guide.md)
 * **Kernel Optimization:** `sysctl` hardening for network protection.
