@@ -4,26 +4,74 @@
 
 After implementing:
 
-- Host-level behavioral prevention (CrowdSec)
-- Full observability stack (LGMA)
+- ✔️ System hardening & surface reduction (Phase 1)
+- ✔️ Full observability stack — LGMA (Phase 2)
+- ✔️ Host-level behavioral prevention — CrowdSec (Phase 3)
 
 This phase introduces a **Network Intrusion Prevention System (NIPS)** using Suricata in inline mode.
 
 Deployment strategy:
 
-1. Deploy in IDS mode (detection only)
-2. Validate logging & visibility
-3. Benchmark traffic baseline
-4. Switch to NFQUEUE inline mode
-5. Enable controlled DROP rules
-6. Implement zero-downtime rule updates
+1. Install Suricata and validate configuration
+2. Deploy in IDS mode (detection only)
+3. Validate logging & visibility
+4. Benchmark traffic baseline
+5. Switch to NFQUEUE inline mode
+6. Enable controlled DROP rules
+7. Implement zero-downtime rule updates
 
-Objective:
+Objectives:
 
 - Block real network scans (Nmap, NULL, XMAS)
 - Avoid impacting SSH / HTTP / HTTPS / IPv6
 - Maintain full observability
-- Guarantee safe rollback
+- Guarantee safe rollback at every step
+
+---
+
+# ⚙️ Section 0 — Suricata Installation & Prerequisites
+
+## 📦 Install Suricata
+
+```bash
+sudo add-apt-repository ppa:oisf/suricata-stable
+sudo apt-get update
+sudo apt-get install suricata suricata-update
+```
+
+## 🔄 Update Rule Sets
+
+```bash
+sudo suricata-update
+```
+
+## 📋 Install Additional Rule Sources (Optional)
+
+```bash
+sudo suricata-update list-sources
+sudo suricata-update enable-source et/open
+sudo suricata-update
+```
+
+## 🔌 Required Kernel Module — NFQUEUE
+
+NFQUEUE is a kernel module required for inline mode. Verify it is available:
+
+```bash
+lsmod | grep nfnetlink_queue
+```
+
+If not loaded:
+
+```bash
+sudo modprobe nfnetlink_queue
+```
+
+To persist across reboots:
+
+```bash
+echo "nfnetlink_queue" | sudo tee -a /etc/modules
+```
 
 ---
 
@@ -39,9 +87,9 @@ sudo suricata -T
 
 ![Suricata Config Test](../assets/network_1.png)
 
-✔ Configuration successfully loaded  
-✔ No fatal errors  
-✔ Production-safe validation  
+✔ Configuration successfully loaded
+✔ No fatal errors
+✔ Production-safe validation
 
 This ensures Suricata starts with a clean configuration.
 
@@ -56,9 +104,9 @@ sudo systemctl status suricata
 
 ![Suricata Service Running](../assets/network_2.png)
 
-✔ Suricata running under systemd  
-✔ No crash loops  
-✔ Proper PID management  
+✔ Suricata running under systemd
+✔ No crash loops
+✔ Proper PID management
 
 IDS mode is now active.
 
@@ -80,8 +128,8 @@ Observed fields:
 - SNI hostname
 - Direct capture from interface
 
-✔ Deep Packet Inspection confirmed  
-✔ Full visibility of encrypted session metadata  
+✔ Deep Packet Inspection confirmed
+✔ Full visibility of encrypted session metadata
 
 Logs are forwarded to Loki via Alloy for centralized analysis.
 
@@ -99,8 +147,8 @@ Observations:
 - Noise from non-exposed ports
 - Recon attempts fully visible
 
-✔ Detection working correctly  
-✔ Useful for baseline benchmarking  
+✔ Detection working correctly
+✔ Useful for baseline benchmarking
 
 ---
 
@@ -108,11 +156,28 @@ Observations:
 
 ## Architecture Principle
 
-- UFW → Port exposure
-- nftables → Traffic selection
-- Suricata → Behavioral decision engine (DROP)
+```
+Internet Traffic
+      │
+      ▼
+   nftables
+   ├── SSH → ACCEPT (bypass NFQUEUE)
+   ├── Established connections → ACCEPT
+   ├── IPv6 → ACCEPT (excluded from inspection)
+   └── HTTP/HTTPS (NEW, IPv4) → NFQUEUE
+                                    │
+                                    ▼
+                                Suricata
+                           (behavioral engine)
+                           ├── ALLOW → packet forwarded
+                           └── DROP  → packet blocked
+```
 
-Suricata does **not** inspect everything — only selected traffic via NFQUEUE.
+- **UFW** → Controls which ports are exposed
+- **nftables** → Selects which traffic enters NFQUEUE
+- **Suricata** → Makes DROP/ACCEPT decisions on queued packets
+
+Suricata does **not** inspect everything — only targeted traffic via NFQUEUE.
 
 ---
 
@@ -133,9 +198,9 @@ Key elements:
 - IPv6 excluded
 - HTTP/HTTPS (IPv4, NEW state) sent to NFQUEUE
 
-✔ Minimal attack surface  
-✔ Performance optimized  
-✔ Explicit whitelist before inspection  
+✔ Minimal attack surface
+✔ Performance optimized
+✔ Explicit whitelist before inspection
 
 ---
 
@@ -160,9 +225,9 @@ Real-time log monitoring confirms DROP execution:
 
 ![DROP Event Confirmation](../assets/network_6.png)
 
-✔ DROP action visible in logs  
-✔ Not just alert — actual packet blocking  
-✔ Inline enforcement active  
+✔ DROP action visible in logs
+✔ Not just alert — actual packet blocking
+✔ Inline enforcement active
 
 Suricata now operates as a **true Network IPS**.
 
@@ -181,9 +246,9 @@ Observed improvements:
 - Cleaner telemetry signal
 - Reduced log ingestion load
 
-✔ Better readability  
-✔ Lower system overhead  
-✔ Security signal becomes actionable  
+✔ Better readability
+✔ Lower system overhead
+✔ Security signal becomes actionable
 
 This behavior is expected and desired in production.
 
@@ -196,21 +261,22 @@ Suricata permanently configured in NFQUEUE mode.
 Verification:
 
 ```bash
-ps aux | grep suricata
+sudo systemctl status suricata
 ```
 
 ![Suricata NFQUEUE Mode](../assets/network_8.png)
 
 Confirmed:
 
-- Single Suricata process
-- Running in nfqueue mode
-- Managed by systemd
-- Integrated with nftables
+- Service: **active (running)** — managed by systemd
+- Loaded with `override.conf` drop-in (NFQUEUE mode configuration)
+- ExecStart confirms `-q 0 -D` flags — NFQUEUE queue 0, daemon mode
+- ExecReload confirms hot rule reload via `suricatasc`
+- Automatic startup on boot enabled
 
-✔ Automatic startup  
-✔ Inline enforcement persistent  
-✔ No manual debug dependency  
+✔ Automatic startup
+✔ Inline enforcement persistent
+✔ No manual debug dependency
 
 ---
 
@@ -223,16 +289,67 @@ Production-safe update strategy:
 3. Apply `systemctl reload suricata`
 4. Preserve old rules on failure
 
-Why reload and not restart?
+```bash
+sudo suricata-update
+sudo suricata -T -c /etc/suricata/suricata.yaml
+sudo systemctl reload suricata
+```
+
+**Why `reload` and not `restart`?**
 
 In inline (Fail-Closed) mode:
 
-- A restart immediately drops live traffic.
-- Reload keeps NFQUEUE active.
+- A `restart` immediately drops live traffic during the gap between stop and start.
+- A `reload` performs a hot rule swap while keeping NFQUEUE active.
 
-✔ Pre-validation before deployment  
-✔ Hot reload  
-✔ No traffic interruption  
+✔ Pre-validation before deployment
+✔ Hot reload
+✔ No traffic interruption
+
+---
+
+# 🛟 Section 9 — Rollback Procedure
+
+In the event of a misconfiguration or unexpected DROP behavior, a safe rollback procedure was defined before going inline.
+
+## Step 1 — Stop Suricata
+
+```bash
+sudo systemctl stop suricata
+```
+
+With Fail-Closed (NFQUEUE), stopping Suricata without removing the nftables rules will block all queued traffic. **Always flush nftables rules first.**
+
+## Step 2 — Remove NFQUEUE nftables Rules
+
+```bash
+sudo nft delete table inet suricata_nips
+```
+
+Traffic now bypasses Suricata entirely and flows normally through UFW.
+
+## Step 3 — Verify Service Continuity
+
+```bash
+curl -I http://localhost
+sudo systemctl status nginx
+```
+
+✔ Services remain reachable
+✔ Zero downtime during rollback
+
+## Step 4 — Diagnose Before Re-enabling
+
+```bash
+sudo suricata -T
+sudo journalctl -u suricata -n 50
+```
+
+Fix the offending rule or configuration, re-validate, then re-apply the nftables table and restart Suricata.
+
+> [!IMPORTANT]
+> This rollback procedure was validated **before** activating inline mode on production.
+> Never switch to NFQUEUE without a tested rollback path.
 
 ---
 
@@ -240,16 +357,16 @@ In inline (Fail-Closed) mode:
 
 The VPS now includes:
 
-- ✔ Host-level IPS (CrowdSec)
-- ✔ Network-level IPS (Suricata inline NFQUEUE)
-- ✔ Kernel-level enforcement (nftables)
-- ✔ Zero-downtime rule updates
-- ✔ Full observability via Loki & Grafana
-- ✔ Controlled minimal DROP rules
-- ✔ Production-safe rollback capability
+- ✔️ Host-level IPS (CrowdSec)
+- ✔️ Network-level IPS (Suricata inline NFQUEUE)
+- ✔️ Kernel-level enforcement (nftables)
+- ✔️ Zero-downtime rule updates
+- ✔️ Full observability via Loki & Grafana
+- ✔️ Controlled minimal DROP rules
+- ✔️ Documented production-safe rollback procedure
 
 Suricata is used as a **targeted decision engine**, not as a generic firewall.
 
 ---
 
-# 🚀 Ready for Phase 5 — Threat Hunting & MITRE Mapping
+➡️ **Next: [Phase 5 – Threat Hunting & MITRE ATT&CK Validation](../phase-5-threat-hunting/hunting-scenarios.md)**
