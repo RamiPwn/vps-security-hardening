@@ -1,4 +1,4 @@
-# 📊 Phase 2 - Observability Stack (LGMA)
+# 📊 Phase 2 – Observability Stack (LGMA)
 
 ## 📝 Global Overview
 
@@ -21,6 +21,46 @@ This architecture is based on six components:
 > [!IMPORTANT]
 > Full configuration files are not published for security reasons (production environment).
 > Only the methodology and validation steps are provided.
+
+---
+
+## 🧠 Why This Stack?
+
+Before deployment, alternative solutions were considered. The following table summarizes the rationale behind the chosen stack:
+
+| Component | Alternative Considered | Reason for Choice |
+|---|---|---|
+| **Grafana** | Kibana | Native Loki/Prometheus integration, lighter footprint |
+| **Loki** | Elasticsearch | Index-free log storage, lower resource usage |
+| **Prometheus** | InfluxDB | Pull-based scraping, rich ecosystem of exporters |
+| **Grafana Alloy** | Promtail / Fluentd | Unified collector for logs and metrics, actively maintained |
+| **VictoriaMetrics** *(Phase 3)* | Prometheus long-term storage | Optimized for high-cardinality CrowdSec metrics |
+
+This combination provides a **production-grade, resource-efficient observability platform** fully controllable via Docker.
+
+---
+
+## 🏗️ Stack Architecture
+
+```
+┌──────────────────────────────────────────────────────┐
+│                    DATA SOURCES                      │
+│   Nginx (logs)   │  System (metrics)  │  Docker      │
+└────────┬─────────┴────────┬───────────┴──────┬───────┘
+         │                  │                  │
+         ▼                  ▼                  ▼
+   Grafana Alloy       Node Exporter        cAdvisor
+   (log collector)     (system metrics)   (container metrics)
+         │                  │                  │
+         ▼                  └────────┬─────────┘
+        Loki                         │
+   (log storage)                Prometheus
+         │                     (metrics storage)
+         └──────────┬──────────────┘
+                    ▼
+                 Grafana
+              (visualization)
+```
 
 ---
 
@@ -103,6 +143,9 @@ Deployed services:
 - alloy
 - node_exporter
 - cadvisor
+
+> **Security note:** All services are bound to internal Docker networks only.
+> Grafana is **not** publicly exposed — access is restricted via SSH tunnel or internal network.
 
 ---
 
@@ -221,8 +264,10 @@ Bar Chart panel displaying log volume by country.
 
 Complete validation:
 
-NGINX → Alloy → Loki → Grafana  
-Node Exporter / cAdvisor → Prometheus → Grafana  
+```
+NGINX → Alloy → Loki → Grafana
+Node Exporter / cAdvisor → Prometheus → Grafana
+```
 
 Final consolidated dashboard view:
 
@@ -234,15 +279,19 @@ Final consolidated dashboard view:
 
 The observability stack is now:
 
-- Functional (metrics + logs)
-- Correlated (logs + metrics + GeoIP)
-- Secure (Grafana not publicly exposed)
-- Persistent (Docker volumes)
-- Reproducible (standardized YAML structure)
+- ✔️ Functional (metrics + logs)
+- ✔️ Correlated (logs + metrics + GeoIP)
+- ✔️ Secure (Grafana not publicly exposed)
+- ✔️ Persistent (Docker volumes)
+- ✔️ Reproducible (standardized YAML structure)
 
-This infrastructure provides a solid foundation for future phases:
+This infrastructure provides a solid foundation for the following phases:
 
 - Alerting
 - Event correlation
 - Anomaly detection
 - Advanced Blue Team operations
+
+---
+
+➡️ **Next: [Phase 3 – HIPS with CrowdSec](../phase-3-hips-crowdsec/intrusion-prevention.md)**
