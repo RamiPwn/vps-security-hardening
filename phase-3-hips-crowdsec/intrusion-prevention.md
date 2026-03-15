@@ -4,8 +4,8 @@
 
 After:
 
-- ✔️ Attack surface reduction (Phase 1)  
-- ✔️ Full LGMA observability stack (Phase 2)  
+- ✔️ Attack surface reduction (Phase 1)
+- ✔️ Full LGMA observability stack (Phase 2)
 
 This phase introduces a **Host Intrusion Prevention System (HIPS)** powered by CrowdSec.
 
@@ -20,7 +20,62 @@ Objectives:
 
 The transition was performed progressively:
 
-Observation ➜ Validation ➜ Remediation activation ➜ Fail2ban removal
+```
+Observation ➜ Validation ➜ Remediation Activation ➜ Fail2ban Removal
+```
+
+---
+
+# ⚙️ Section 0 — CrowdSec Installation & Prerequisites
+
+## 📦 Install CrowdSec
+
+```bash
+curl -s https://packagecloud.io/install/repositories/crowdsec/crowdsec/script.deb.sh | sudo bash
+sudo apt-get install crowdsec
+```
+
+## 🔌 Install the nftables Bouncer
+
+```bash
+sudo apt-get install crowdsec-firewall-bouncer-nftables
+```
+
+## 📋 Verify Installation
+
+```bash
+sudo systemctl status crowdsec
+sudo cscli version
+```
+
+## 🎯 Collections Installed
+
+CrowdSec uses **collections** — bundles of parsers and scenarios for specific services.
+
+```bash
+sudo cscli collections install crowdsecurity/nginx
+sudo cscli collections install crowdsecurity/sshd
+```
+
+Collections installed:
+
+| Collection | Purpose |
+|---|---|
+| `crowdsecurity/nginx` | HTTP log parsing + web attack scenarios |
+| `crowdsecurity/sshd` | SSH log parsing + brute-force scenarios |
+
+## 🔍 Verify Active Scenarios
+
+```bash
+sudo cscli scenarios list
+```
+
+Key scenarios active:
+
+- `crowdsecurity/ssh-bf` — SSH fast brute-force
+- `crowdsecurity/ssh-slow-bf` — SSH slow brute-force
+- `crowdsecurity/http-probing` — HTTP reconnaissance
+- `crowdsecurity/http-bad-user-agent` — Malicious user agents
 
 ---
 
@@ -28,7 +83,7 @@ Observation ➜ Validation ➜ Remediation activation ➜ Fail2ban removal
 
 ## 🎯 Objective
 
-Validate the engine’s ability to:
+Validate the engine's ability to:
 
 - Properly parse logs
 - Trigger scenarios (ssh-bf, ssh-slow-bf, http-probing…)
@@ -106,12 +161,29 @@ Each alert contains:
 
 # 📊 Section 3 — SOC Visualization (Grafana + VictoriaMetrics)
 
-CrowdSec alerts are:
+## 🏗️ CrowdSec Metrics Pipeline
 
-1. Written in NDJSON format
-2. Collected via a dedicated Alloy pipeline
-3. Ingested into VictoriaMetrics
-4. Visualized in Grafana
+CrowdSec produces structured alert data (NDJSON format) that is routed through a dedicated observability pipeline:
+
+```
+CrowdSec (NDJSON alerts)
+        │
+        ▼
+  Grafana Alloy
+  (dedicated pipeline)
+        │
+        ▼
+  VictoriaMetrics
+  (metrics storage — separated from Prometheus)
+        │
+        ▼
+    Grafana
+  (SOC dashboards)
+```
+
+**Why VictoriaMetrics and not Prometheus?**
+
+CrowdSec generates high-cardinality metrics (one label set per IP/scenario/country combination). VictoriaMetrics is optimized for this workload and avoids bloating the main Prometheus instance used for system metrics.
 
 ---
 
@@ -160,6 +232,10 @@ Before activation:
 sudo cscli allowlists create admin_ips
 sudo cscli allowlists add admin_ips "X.X.X.X"
 ```
+
+> [!IMPORTANT]
+> Creating allowlists **before** activating the bouncer is critical.
+> Failure to do so risks locking out the administrator from the production server.
 
 ---
 
@@ -249,9 +325,9 @@ Effects:
 
 ---
 
-# 🔄 Final Transition
+# 🔄 Final Transition — Fail2ban Removal
 
-Once remediation was validated:
+Once remediation was validated and CrowdSec confirmed stable in production:
 
 ```bash
 sudo systemctl stop fail2ban
@@ -259,12 +335,15 @@ sudo systemctl disable fail2ban
 sudo apt remove --purge fail2ban
 ```
 
-CrowdSec fully replaced Fail2ban with:
+### Why replace Fail2ban?
 
-- Advanced behavioral detection
-- Network enrichment
-- Full observability integration
-- High-performance automated blocking
+| Feature | Fail2ban | CrowdSec |
+|---|---|---|
+| Detection method | Regex-based | Behavioral scenarios |
+| GeoIP enrichment | ❌ | ✔️ Country + ASN |
+| Observability integration | Limited | Full (VictoriaMetrics + Grafana) |
+| Shared threat intelligence | ❌ | ✔️ Community blocklist |
+| Rule management | Per-service config files | Collections + hub |
 
 ---
 
@@ -273,13 +352,13 @@ CrowdSec fully replaced Fail2ban with:
 The VPS now benefits from:
 
 - ✔️ Behavioral host intrusion prevention
-- ✔️ Real-time enriched alerts
-- ✔️ SOC-level visualization
-- ✔️ Automated kernel-level blocking
+- ✔️ Real-time enriched alerts (SMTP)
+- ✔️ SOC-level visualization (Grafana + VictoriaMetrics)
+- ✔️ Automated kernel-level blocking (nftables)
 - ✔️ Scalable and maintainable architecture
 
 The Host IPS layer is fully operational.
 
-The system is now ready for:
+---
 
-➡️ Phase 4 – NIPS with Suricata (Inline Deep Packet Inspection)
+➡️ **Next: [Phase 4 – NIPS with Suricata](../phase-4-nips-suricata/network-protection.md)**
